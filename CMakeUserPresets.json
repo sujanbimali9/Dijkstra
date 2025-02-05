@@ -5,7 +5,7 @@
       "name": "default",
       "inherits": "vcpkg",
       "environment": {
-        "VCPKG_ROOT": "/home/sujan/dev-tools/vcpkg/"
+        "VCPKG_ROOT": "/home/sujan/dev-tools/vcpkg"
       }
     }
   ]

@@ -9,8 +9,8 @@
 #include <vector>
 
 #define BUTTON_SIZE 40
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
+#define SCREEN_WIDTH 1200
+#define SCREEN_HEIGHT 750
 #define WHITE (SDL_Color){255, 255, 255, 255}
 #define BLACK (SDL_Color){0, 0, 0, 255}
 #define RED (SDL_Color){255, 0, 0, 255}
@@ -40,79 +40,6 @@ map<int, vector<pair<int, int>>> adj;
 
 TTF_Font *font;
 SDL_Color textColor = WHITE;
-
-vector<int> dijkstra(int start, int target);
-bool isInsideButton(int x, int y, const Button &button);
-int getButtonIndex(int x, int y);
-bool lineExists(int a, int b);
-void removeLine(int a, int b);
-void renderText(SDL_Renderer *renderer, const string &text, int x, int y);
-void handleMouseClick(int x, int y);
-void updateAdjacency(int a, int b, int weight);
-void processKeyDown(SDL_Event &event);
-void renderButtons(SDL_Renderer *renderer);
-void renderLines(SDL_Renderer *renderer);
-void renderPath(SDL_Renderer *renderer);
-void renderUI(SDL_Renderer *renderer);
-
-int main() {
-  if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-    cerr << "SDL_Init Error: " << SDL_GetError() << endl;
-    return 1;
-  }
-
-  SDL_Window *window = SDL_CreateWindow(
-      "SDL2 Pathfinding", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-      SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
-  if (window == nullptr) {
-    cerr << "SDL_CreateWindow Error: " << SDL_GetError() << endl;
-    return 1;
-  }
-
-  SDL_Renderer *renderer =
-      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-  if (renderer == nullptr) {
-    cerr << "SDL_CreateRenderer Error: " << SDL_GetError() << endl;
-    return 1;
-  }
-
-  if (TTF_Init() == -1) {
-    cerr << "TTF_Init Error: " << TTF_GetError() << endl;
-    return 1;
-  }
-
-  font = TTF_OpenFont("roboto.ttf", 24);
-  if (font == nullptr) {
-    cerr << "TTF_OpenFont Error: " << TTF_GetError() << endl;
-    return 1;
-  }
-
-  bool quit = false;
-  SDL_Event event;
-  while (!quit) {
-    while (SDL_PollEvent(&event)) {
-      if (event.type == SDL_QUIT)
-        quit = true;
-      else if (event.type == SDL_MOUSEBUTTONDOWN) {
-        handleMouseClick(event.button.x, event.button.y);
-      } else if (event.type == SDL_KEYDOWN) {
-        processKeyDown(event);
-      }
-    }
-
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    renderUI(renderer);
-    SDL_RenderPresent(renderer);
-  }
-
-  TTF_CloseFont(font);
-  SDL_DestroyRenderer(renderer);
-  SDL_DestroyWindow(window);
-  SDL_Quit();
-  TTF_Quit();
-  return 0;
-}
 
 vector<int> dijkstra(int start, int target) {
   map<int, int> dist;
@@ -171,6 +98,12 @@ void removeLine(int a, int b) {
   lines.erase(remove(lines.begin(), lines.end(), make_pair(b, a)), lines.end());
   prices.erase({a, b});
   prices.erase({b, a});
+  adj[a].erase(remove_if(adj[a].begin(), adj[a].end(),
+                         [b](const pair<int, int> &p) { return p.first == b; }),
+               adj[a].end());
+  adj[b].erase(
+      remove_if(adj[b].begin(), adj[b].end(),
+                [a](const pair<int, int> &p) { return p.first == a; }));
 }
 
 void renderText(SDL_Renderer *renderer, const string &text, int x, int y) {
@@ -272,84 +205,150 @@ void updateAdjacency(int a, int b, int weight) {
   adj[b].push_back({a, weight});
 }
 
-void processKeyDown(SDL_Event &event) {
-  if (inPathMode) {
-    if (event.key.keysym.sym == SDLK_ESCAPE) {
-      inPathMode = false;
-      selectedButtons.clear();
-      highlightedLines.clear();
-      for (auto &button : buttons) {
-        button.selected = false;
+int main() {
+  SDL_Init(SDL_INIT_VIDEO);
+  TTF_Init();
+
+  SDL_Window *window = SDL_CreateWindow("DIJKSTRA", SDL_WINDOWPOS_CENTERED,
+                                        SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH,
+                                        SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+  SDL_Renderer *renderer =
+      SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+  font = TTF_OpenFont("roboto.ttf", 16);
+
+  bool running = true;
+  SDL_Event event;
+
+  while (running) {
+    while (SDL_PollEvent(&event)) {
+      if (event.type == SDL_QUIT)
+        running = false;
+      else if (event.type == SDL_MOUSEBUTTONDOWN &&
+               event.button.button == SDL_BUTTON_LEFT) {
+        handleMouseClick(event.button.x, event.button.y);
+      } else if (event.type == SDL_KEYDOWN) {
+
+        if (inPathMode) {
+          if (event.key.keysym.sym == SDLK_ESCAPE) {
+            inPathMode = false;
+            selectedButtons.clear();
+            highlightedLines.clear();
+            for (auto &button : buttons) {
+              button.selected = false;
+            }
+            currentMode = GOTO_BUTTON;
+          }
+        } else if (waitingForPrice) {
+          if (event.key.keysym.sym == SDLK_RETURN) {
+            int weight = stoi(priceInput);
+            int a = selectedButtons[0], b = selectedButtons[1];
+
+            prices[{a, b}] = priceInput;
+            prices[{b, a}] = priceInput;
+            updateAdjacency(a, b, weight);
+
+            waitingForPrice = false;
+            buttons[a].selected = false;
+            buttons[b].selected = false;
+            selectedButtons.clear();
+          } else if (event.key.keysym.sym == SDLK_BACKSPACE &&
+                     !priceInput.empty()) {
+            priceInput.pop_back();
+          }
+        } else {
+          if (event.key.keysym.sym == SDLK_l)
+            currentMode = DRAW_LINE;
+          else if (event.key.keysym.sym == SDLK_d)
+            currentMode = DRAW_BUTTON;
+          else if (event.key.keysym.sym == SDLK_p)
+            currentMode = DEFINE_PRICE;
+          else if (event.key.keysym.sym == SDLK_g)
+            currentMode = GOTO_BUTTON;
+        }
+      } else if (event.type == SDL_TEXTINPUT && waitingForPrice) {
+        priceInput += event.text.text;
       }
-      currentMode = GOTO_BUTTON;
     }
-  } else if (waitingForPrice) {
-    if (event.key.keysym.sym == SDLK_RETURN) {
-      int weight = stoi(priceInput);
-      int a = selectedButtons[0], b = selectedButtons[1];
 
-      prices[{a, b}] = priceInput;
-      prices[{b, a}] = priceInput;
-      updateAdjacency(a, b, weight);
+    SDL_SetRenderDrawColor(renderer, BLACK.r, BLACK.g, BLACK.b, BLACK.a);
+    SDL_RenderClear(renderer);
 
-      waitingForPrice = false;
-      buttons[a].selected = false;
-      buttons[b].selected = false;
-      selectedButtons.clear();
-    } else if (event.key.keysym.sym == SDLK_BACKSPACE && !priceInput.empty()) {
-      priceInput.pop_back();
+    SDL_SetRenderDrawColor(renderer, RED.r, RED.g, RED.b, RED.a);
+    for (const auto &line : lines) {
+      SDL_RenderDrawLine(renderer, buttons[line.first].x + BUTTON_SIZE / 2,
+                         buttons[line.first].y + BUTTON_SIZE / 2,
+                         buttons[line.second].x + BUTTON_SIZE / 2,
+                         buttons[line.second].y + BUTTON_SIZE / 2);
     }
-  } else {
-    if (event.key.keysym.sym == SDLK_l)
-      currentMode = DRAW_LINE;
-    else if (event.key.keysym.sym == SDLK_d)
-      currentMode = DRAW_BUTTON;
-    else if (event.key.keysym.sym == SDLK_p)
-      currentMode = DEFINE_PRICE;
-    else if (event.key.keysym.sym == SDLK_g)
-      currentMode = GOTO_BUTTON;
-  }
-}
 
-void renderButtons(SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, WHITE.r, WHITE.g, WHITE.b, WHITE.a);
-  for (const auto &button : buttons) {
-    SDL_Rect rect = {button.x, button.y, BUTTON_SIZE, BUTTON_SIZE};
-    SDL_RenderDrawRect(renderer, &rect);
-    if (button.selected) {
-      SDL_SetRenderDrawColor(renderer, SELECTED.r, SELECTED.g, SELECTED.b,
-                             SELECTED.a);
-      SDL_RenderFillRect(renderer, &rect);
+    SDL_SetRenderDrawColor(renderer, WHITE.r, WHITE.g, WHITE.b, WHITE.a);
+    for (const auto &[key, price] : prices) {
+      int x = (buttons[key.first].x + buttons[key.second].x) / 2;
+      int y = (buttons[key.first].y + buttons[key.second].y) / 2;
+      renderText(renderer, price, x, y);
     }
-    renderText(renderer, button.label, button.x + BUTTON_SIZE / 4,
-               button.y + BUTTON_SIZE / 4);
-  }
-}
 
-void renderLines(SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, WHITE.r, WHITE.g, WHITE.b, WHITE.a);
-  for (const auto &line : lines) {
-    Button &a = buttons[line.first], &b = buttons[line.second];
-    SDL_RenderDrawLine(renderer, a.x + BUTTON_SIZE / 2, a.y + BUTTON_SIZE / 2,
-                       b.x + BUTTON_SIZE / 2, b.y + BUTTON_SIZE / 2);
-  }
-}
+    SDL_SetRenderDrawColor(renderer, WHITE.r, WHITE.g, WHITE.b, WHITE.a);
+    for (const auto &button : buttons) {
+      SDL_Rect rect = {button.x, button.y, BUTTON_SIZE, BUTTON_SIZE};
+      SDL_RenderDrawRect(renderer, &rect);
+      if (button.selected) {
+        SDL_SetRenderDrawColor(renderer, SELECTED.r, SELECTED.g, SELECTED.b,
+                               SELECTED.a);
+        SDL_RenderFillRect(renderer, &rect);
+        SDL_SetRenderDrawColor(renderer, WHITE.r, WHITE.g, WHITE.b, WHITE.a);
+      }
 
-void renderPath(SDL_Renderer *renderer) {
-  SDL_SetRenderDrawColor(renderer, HIGHLIGHT.r, HIGHLIGHT.g, HIGHLIGHT.b,
-                         HIGHLIGHT.a);
-  for (const auto &line : highlightedLines) {
-    Button &a = buttons[line.first], &b = buttons[line.second];
-    SDL_RenderDrawLine(renderer, a.x + BUTTON_SIZE / 2, a.y + BUTTON_SIZE / 2,
-                       b.x + BUTTON_SIZE / 2, b.y + BUTTON_SIZE / 2);
-  }
-}
+      int textWidth, textHeight;
+      TTF_SizeText(font, button.label.c_str(), &textWidth, &textHeight);
+      renderText(renderer, button.label,
+                 button.x + (BUTTON_SIZE - textWidth) / 2,
+                 button.y + (BUTTON_SIZE - textHeight) / 2);
+    }
 
-void renderUI(SDL_Renderer *renderer) {
-  renderButtons(renderer);
-  renderLines(renderer);
-  renderPath(renderer);
-  if (waitingForPrice) {
-    renderText(renderer, priceInput, 10, 10);
+    if (inPathMode) {
+      SDL_SetRenderDrawColor(renderer, HIGHLIGHT.r, HIGHLIGHT.g, HIGHLIGHT.b,
+                             HIGHLIGHT.a);
+      for (auto &line : highlightedLines) {
+        SDL_RenderDrawLine(renderer, buttons[line.first].x + BUTTON_SIZE / 2,
+                           buttons[line.first].y + BUTTON_SIZE / 2,
+                           buttons[line.second].x + BUTTON_SIZE / 2,
+                           buttons[line.second].y + BUTTON_SIZE / 2);
+      }
+
+      SDL_SetRenderDrawColor(renderer, HIGHLIGHT.r, HIGHLIGHT.g, HIGHLIGHT.b,
+                             HIGHLIGHT.a);
+      for (int index : selectedButtons) {
+        auto button = buttons[index];
+        SDL_Rect buttonRect = {button.x, button.y, BUTTON_SIZE, BUTTON_SIZE};
+        SDL_RenderFillRect(renderer, &buttonRect);
+        int textWidth, textHeight;
+        TTF_SizeText(font, button.label.c_str(), &textWidth, &textHeight);
+        renderText(renderer, button.label,
+                   button.x + (BUTTON_SIZE - textWidth) / 2,
+                   button.y + (BUTTON_SIZE - textHeight) / 2);
+      }
+    }
+
+    renderText(renderer,
+               "Press D: Draw Button | L: Draw Line | P: Define Price", 10, 10);
+    string modeText = "Mode: " + string(currentMode == DRAW_BUTTON   ? "Button"
+                                        : currentMode == DRAW_LINE   ? "Line"
+                                        : currentMode == GOTO_BUTTON ? "Go TO "
+                                                                     : "Price");
+    renderText(renderer, modeText, 10, 30);
+
+    if (waitingForPrice) {
+      renderText(renderer, "Enter price: " + priceInput, 10, 50);
+    }
+
+    SDL_RenderPresent(renderer);
   }
+
+  TTF_CloseFont(font);
+  SDL_DestroyRenderer(renderer);
+  SDL_DestroyWindow(window);
+  TTF_Quit();
+  SDL_Quit();
+  return 0;
 }
