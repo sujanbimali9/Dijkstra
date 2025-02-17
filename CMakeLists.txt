@@ -6,10 +6,11 @@ set(CMAKE_PREFIX_PATH "/home/sujan/dev-tools/vcpkg/installed/X64-linux/share" ${
 
 
 add_executable(DIJKSTRA src/main.cpp)
-add_compile_options("-g")
+# add_compile_options("-g")
 
 find_package(SDL2 CONFIG REQUIRED)
 find_package(SDL2_ttf CONFIG REQUIRED)
+find_package(sdl2-gfx CONFIG REQUIRED)
 
 target_link_libraries(DIJKSTRA
     PRIVATE
@@ -17,3 +18,4 @@ target_link_libraries(DIJKSTRA
     $<IF:$<TARGET_EXISTS:SDL2::SDL2>,SDL2::SDL2,SDL2::SDL2-static>
 )
 target_link_libraries(DIJKSTRA PRIVATE $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>)
+target_link_libraries(DIJKSTRA PRIVATE SDL2::SDL2_gfx)
