@@ -128,7 +128,7 @@ int SdlApp::run(function<void(SDL_Event event)> eventHandler, const int fps) {
 
       eventHandler(event);
       SDL_RenderPresent(renderer);
-      SDL_Delay(100 / fps);
+      SDL_Delay(1000 / fps);
     }
   }
   return 0;

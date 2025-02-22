@@ -1,10 +1,9 @@
-#include "sdl_all.hpp"
+#include "sdl_app.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
 #include <SDL2/SDL_ttf.h>
 #include <algorithm>
 #include <iostream>
-#include <limits>
 #include <map>
 #include <queue>
 #include <string>
@@ -58,26 +57,23 @@ void updateAdjacency(int, int, int);
 void drawElements(SdlApp &);
 void drawHighlightPath(SdlApp &);
 void drawHelp(SdlApp &);
+void eventHandler(SDL_Event &, SdlApp &);
 
 int main() {
-  cout << "initializing sdl" << endl;
   SdlApp sdl;
-  cout << "sdl object" << endl;
 
   if (sdl.init(800, 600) != 0) {
     return 1;
   }
 
-  cout << "sdl initalized" << endl;
-
   sdl.run([&sdl](SDL_Event event) { eventHandler(event, sdl); });
-  cout << "exiting" << endl;
   return 0;
 }
 
 vector<int> dijkstra(int start, int target) {
   map<int, int> dist;
   map<int, int> prev;
+
   for (auto &b : buttons)
     dist[&b - &buttons[0]] = numeric_limits<int>::max();
 
@@ -102,9 +98,16 @@ vector<int> dijkstra(int start, int target) {
   }
 
   vector<int> path;
+
+  if (prev.find(target) == prev.end() && start != target) {
+    return path;
+  }
+
   for (int at = target; at != start; at = prev[at])
     path.push_back(at);
+
   path.push_back(start);
+  auto s = path.begin();
   reverse(path.begin(), path.end());
   return path;
 }
@@ -180,6 +183,10 @@ void drawHighlightPath(SdlApp &sdl) {
   }
 }
 
+bool isNum(const string &str) {
+  return !str.empty() && all_of(str.begin(), str.end(), ::isdigit);
+}
+
 void eventHandler(SDL_Event &event, SdlApp &sdl) {
   if (event.type == SDL_MOUSEBUTTONDOWN &&
       event.button.button == SDL_BUTTON_LEFT) {
@@ -198,6 +205,9 @@ void eventHandler(SDL_Event &event, SdlApp &sdl) {
     } else if (waitingForPrice) {
       if (event.key.keysym.sym == SDLK_RETURN) {
         try {
+          if (!isNum(priceInput)) {
+            throw runtime_error("invalid input");
+          }
           int weight = stoi(priceInput);
 
           cout << weight << endl;
@@ -301,6 +311,13 @@ void handleMouseClick(int x, int y) {
       if (selectedButtons.size() == 2) {
         int a = selectedButtons[0], b = selectedButtons[1];
         vector<int> path = dijkstra(a, b);
+        if (path.size() == 0) {
+          selectedButtons.pop_back();
+          buttons[index].selected = false;
+          cout << "no Path found between " << buttons[a].label << " and "
+               << buttons[b].label << endl;
+          return;
+        }
 
         inPathMode = true;
         selectedButtons = path;
@@ -358,8 +375,8 @@ bool lineExists(int a, int b) {
 }
 
 void removeLine(int a, int b) {
-  lines.erase(remove(lines.begin(), lines.end(), make_pair(a, b)), lines.end());
-  lines.erase(remove(lines.begin(), lines.end(), make_pair(b, a)), lines.end());
+  lines.erase(remove(lines.begin(), lines.end(), pair(a, b)), lines.end());
+  lines.erase(remove(lines.begin(), lines.end(), pair(b, a)), lines.end());
   prices.erase({a, b});
   prices.erase({b, a});
   adj[a].erase(remove_if(adj[a].begin(), adj[a].end(),
