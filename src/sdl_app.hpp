@@ -10,9 +10,11 @@ private:
   SDL_Window *window;
   SDL_Renderer *renderer;
   TTF_Font *font;
+  SDL_Color backgroundColor;
 
 public:
-  SdlApp(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font);
+  SdlApp(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font,
+         SDL_Color backgroundColor);
   SdlApp();
   ~SdlApp();
 
@@ -21,13 +23,17 @@ public:
   int drawButtonFilled(int x, int y, int rad, SDL_Color color);
   int drawLine(int x1, int y1, int x2, int y2, SDL_Color color);
   int renderText(const string &text, int x, int y, SDL_Color color);
-  int run(function<void(SDL_Event event)> eventHandler, const int fps = 60);
+  int run(function<void(SDL_Event event)> eventHandler);
   int textSize(const char *text, int *w, int *h);
 };
 
-SdlApp::SdlApp(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font)
-    : window(window), renderer(renderer), font(font) {}
-SdlApp::SdlApp() : window(nullptr), renderer(nullptr), font(nullptr) {};
+SdlApp::SdlApp(SDL_Window *window, SDL_Renderer *renderer, TTF_Font *font,
+               SDL_Color backgroundColor)
+    : window(window), renderer(renderer), font(font),
+      backgroundColor(backgroundColor) {}
+SdlApp::SdlApp()
+    : window(nullptr), renderer(nullptr), font(nullptr),
+      backgroundColor({255, 255, 255, 255}) {};
 
 SdlApp::~SdlApp() {
   if (font) {
@@ -112,7 +118,7 @@ int SdlApp::renderText(const string &text, int x, int y, SDL_Color color) {
   return 0;
 }
 
-int SdlApp::run(function<void(SDL_Event event)> eventHandler, const int fps) {
+int SdlApp::run(function<void(SDL_Event event)> eventHandler) {
 
   bool running = true;
   SDL_Event event;
@@ -122,13 +128,13 @@ int SdlApp::run(function<void(SDL_Event event)> eventHandler, const int fps) {
         running = false;
       }
 
-      SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+      SDL_SetRenderDrawColor(renderer, backgroundColor.r, backgroundColor.g,
+                             backgroundColor.b, backgroundColor.a);
       SDL_RenderClear(renderer);
       SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
       eventHandler(event);
       SDL_RenderPresent(renderer);
-      SDL_Delay(1000 / fps);
     }
   }
   return 0;

@@ -43,7 +43,7 @@ void calculateLineCoordinates(int &x1, int &y1, int &x2, int &y2, int r1,
                               int r2 = -1);
 
 TTF_Font *font;
-SDL_Color textColor = WHITE;
+SDL_Color textColor = BLACK;
 
 vector<int> dijkstra(int, int);
 bool isInsideButton(int, int, const Button &);
@@ -62,7 +62,7 @@ void eventHandler(SDL_Event &, SdlApp &);
 int main() {
   SdlApp sdl;
 
-  if (sdl.init(800, 600) != 0) {
+  if (sdl.init(SCREEN_WIDTH, SCREEN_HEIGHT) != 0) {
     return 1;
   }
 
@@ -115,21 +115,21 @@ vector<int> dijkstra(int start, int target) {
 void drawHelp(SdlApp &sdl) {
   sdl.renderText(
       "Press D: Draw Button | L: Draw Line | P: Define Price | G: Go To", 10,
-      10, WHITE);
+      10, BLACK);
   string modeText = "Mode: " + string(currentMode == DRAW_BUTTON   ? "Button"
                                       : currentMode == DRAW_LINE   ? "Line"
                                       : currentMode == GOTO_BUTTON ? "Go To "
                                                                    : "Price");
-  sdl.renderText(modeText, 10, 30, WHITE);
+  sdl.renderText(modeText, 10, 30, BLACK);
 
   if (waitingForPrice) {
-    sdl.renderText("Enter price: " + priceInput, 10, 50, WHITE);
+    sdl.renderText("Enter price: " + priceInput, 10, 50, BLACK);
   }
   if (error.length() != 0) {
     sdl.renderText(error, 600, 10, RED);
   }
   if (inPathMode) {
-    sdl.renderText("Press ESC to return", 10, 50, WHITE);
+    sdl.renderText("Press ESC to return", 10, 50, BLACK);
   }
 }
 
@@ -146,19 +146,19 @@ void drawElements(SdlApp &sdl) {
   for (const auto &[key, price] : prices) {
     int x = (buttons[key.first].x + buttons[key.second].x) / 2;
     int y = (buttons[key.first].y + buttons[key.second].y) / 2;
-    sdl.renderText(price, x, y, WHITE);
+    sdl.renderText(price, x, y, BLACK);
   }
 
   for (const auto &button : buttons) {
     if (button.selected)
       sdl.drawButtonFilled(button.x, button.y, BUTTON_RADIUS, SELECTED);
     else
-      sdl.drawButton(button.x, button.y, BUTTON_RADIUS, WHITE);
+      sdl.drawButton(button.x, button.y, BUTTON_RADIUS, BLACK);
 
     int textWidth, textHeight;
     sdl.textSize(button.label.c_str(), &textWidth, &textHeight);
     sdl.renderText(button.label, button.x - textWidth / 2,
-                   button.y - textHeight / 2, WHITE);
+                   button.y - textHeight / 2, BLACK);
   }
 }
 
@@ -179,7 +179,7 @@ void drawHighlightPath(SdlApp &sdl) {
     int textWidth, textHeight;
     sdl.textSize(button.label.c_str(), &textWidth, &textHeight);
     sdl.renderText(button.label, button.x - textWidth / 2,
-                   button.y - textHeight / 2, WHITE);
+                   button.y - textHeight / 2, BLACK);
   }
 }
 
